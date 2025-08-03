@@ -130,7 +130,32 @@ pub fn emulate_cycle(&mut self){
             self.v[x] = self.v[x].wrapping_add(byte);
         }
 
+        0xD000 => {
+            let x = self.v[((opcode & 0x0F00) >> 8) as usize] as u16;
+            let y = self.v[((opcode & 0x00F0) >> 4) as usize] as u16;
+            let height = (opcode & 0x00F) as u16;
+
+            self.v[0xF] = 0;
+
+            for row in 0..height{
+                let sprite_pixel = (sprite_byte >> (7 - col)) & 1;
+                let px = (x + col) % 64;
+                let py = (y + row) % 32;
+                let index = (py * 64 + px) as usize;   
+                
+                if sprite_pixel == 1 {
+                    if self.gfx[index] == 1 {
+                        self.v[0xF] = 1;
+                    }
+                    self.gfx[index] ^= 1;
+                }
+
+            }
+        }
+
         // Todo: Add more opcodes
+
+        self.draw_flag = true;
 
         _ => {
             println!("Unknown opcode: {:#04x}", opcode);
