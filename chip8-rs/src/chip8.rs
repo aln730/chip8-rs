@@ -3,22 +3,22 @@ use std::io::{self, Read};
 
 pub struct Chip8 {
     memory: [u8; 4096],
-    v: [u8, 16],
+    v: [u8; 16],
     i: u16,
     pc: u16,
-    gfx: [u8; 64 * 32],
+    pub gfx: [u8; 64 * 32],
     delay_timer: u8,
     sound_timer: u8,
     stack: Vec<u16>,
     keypad: [bool;16],
-    draw_flag: bool,
-    quirls: Quirks,
+    pub draw_flag: bool,
+    quirks: Quirks
 }
 
 pub struct  Quirks{
-    shift_uses_vy: bool,
-    bnnn_uses_vx: bool,
-    fx55_increases_i: bool,
+    pub shift_uses_vy: bool,
+    pub bnnn_uses_vx: bool,
+    pub fx55_increases_i: bool,
 }
 
 const FONTSET: [u8; 80] = [
@@ -53,7 +53,7 @@ impl Chip8 {
             stack: Vec::with_capacity(16),
             keypad: [false; 16],
             draw_flag: false,
-            quirls: quirks,
+            quirks: quirks,
         };
 
         
@@ -63,26 +63,27 @@ impl Chip8 {
 
         chip8
     }
-}
+
 
 pub fn load_rom(&mut self, path: &str) -> io::Result<()>{
     let mut file = File::open(path)?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
 
-    if 0x200 + buffer.len() > 4096 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "ROM TOO LARGE TO FIT IN MEMORY"
-        ));
+        if 0x200 + buffer.len() > 4096 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "ROM TOO LARGE TO FIT IN MEMORY",
+            ));
+        }
 
-        for (i, &byte) in buffer.iter().enumerate(){
-            self.memory[0x200 + 1] = byte;
+        for (i, &byte) in buffer.iter().enumerate() {
+            self.memory[0x200 + i] = byte;
         }
 
         Ok(())
+
     }
-}
 
 pub fn emulate_cycle(&mut self){
     let opcode = ((self.memory[self.pc as usize] as u16) << 8)
@@ -130,32 +131,39 @@ pub fn emulate_cycle(&mut self){
             self.v[x] = self.v[x].wrapping_add(byte);
         }
 
+        0xA000 => {
+            self.i = opcode & 0x0FFF;
+        }
+
+
         0xD000 => {
             let x = self.v[((opcode & 0x0F00) >> 8) as usize] as u16;
             let y = self.v[((opcode & 0x00F0) >> 4) as usize] as u16;
-            let height = (opcode & 0x00F) as u16;
+            let height = (opcode & 0x000F) as u16;
 
             self.v[0xF] = 0;
 
-            for row in 0..height{
-                let sprite_pixel = (sprite_byte >> (7 - col)) & 1;
-                let px = (x + col) % 64;
-                let py = (y + row) % 32;
-                let index = (py * 64 + px) as usize;   
-                
-                if sprite_pixel == 1 {
-                    if self.gfx[index] == 1 {
-                        self.v[0xF] = 1;
-                    }
-                    self.gfx[index] ^= 1;
-                }
+            for row in 0..height {
+                let sprite_byte = self.memory[(self.i + row) as usize];
+                for col in 0..8 {
+                    let sprite_pixel = (sprite_byte >> (7 - col)) & 1;
+                    let px = (x + col) % 64;
+                    let py = (y + row) % 32;
+                    let index = (py * 64 + px) as usize;
 
+                    if sprite_pixel == 1 {
+                        if self.gfx[index] == 1 {
+                            self.v[0xF] = 1;
+                        }
+                        self.gfx[index] ^= 1;
+                    }
+                }
             }
+
+            self.draw_flag = true;
         }
 
         // Todo: Add more opcodes
-
-        self.draw_flag = true;
 
         _ => {
             println!("Unknown opcode: {:#04x}", opcode);
@@ -171,4 +179,6 @@ pub fn emulate_cycle(&mut self){
         }
         self.sound_timer -= 1;
     }
+}
+
 }
