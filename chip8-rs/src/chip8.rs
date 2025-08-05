@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::io::{self, Read};
 
+use rand::random;
+
 pub struct Chip8 {
     memory: [u8; 4096],
     v: [u8; 16],
@@ -85,31 +87,28 @@ pub fn load_rom(&mut self, path: &str) -> io::Result<()>{
 
     }
 
-pub fn emulate_cycle(&mut self){
+pub fn emulate_cycle(&mut self) {
     let opcode = ((self.memory[self.pc as usize] as u16) << 8)
                |  (self.memory[(self.pc + 1) as usize] as u16);
-    
+
     self.pc += 2;
 
-    match opcode& 0xF000 {
+    match opcode & 0xF000 {
         0x0000 => match opcode & 0x00FF {
             0x00E0 => {
                 self.gfx = [0; 64 * 32];
                 self.draw_flag = true;
-
             }
             0x00EE => {
                 self.pc = self.stack.pop().expect("Stack underflow on RET");
-
             }
             _ => {
-                println!("Unknown 0x0NNN call: {:#04x}", opcode);
+                println!("Unknown 0x0NNN call: {:#06x}", opcode);
             }
-            
         }
 
         0x1000 => {
-            let addr = opcode& 0x0FFF;
+            let addr = opcode & 0x0FFF;
             self.pc = addr;
         }
 
@@ -121,7 +120,7 @@ pub fn emulate_cycle(&mut self){
 
         0x3000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
-            let kk = ((opcode & 0x00FF)) as u8;
+            let kk = (opcode & 0x00FF) as u8;
             if self.v[x] == kk {
                 self.pc += 2;
             }
@@ -129,7 +128,7 @@ pub fn emulate_cycle(&mut self){
 
         0x4000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
-            let kk = ((opcode & 0x00FF) >> 8) as u8;
+            let kk = (opcode & 0x00FF) as u8;
             if self.v[x] != kk {
                 self.pc += 2;
             }
@@ -138,12 +137,8 @@ pub fn emulate_cycle(&mut self){
         0x5000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let y = ((opcode & 0x00F0) >> 4) as usize;
-            if opcode & 0x000F == 0 {
-                if self.v[x] == 0 {
-                    if self.v[x] == self.v[y] {
-                        self.pc +=2;
-                    }
-                }
+            if opcode & 0x000F == 0 && self.v[x] == self.v[y] {
+                self.pc += 2;
             }
         }
 
@@ -151,8 +146,8 @@ pub fn emulate_cycle(&mut self){
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let byte = (opcode & 0x00FF) as u8;
             self.v[x] = byte;
-        }  
-        
+        }
+
         0x7000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let byte = (opcode & 0x00FF) as u8;
@@ -160,78 +155,79 @@ pub fn emulate_cycle(&mut self){
         }
 
         //Arithmatic Ops
-        
+
         0x8000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let y = ((opcode & 0x00F0) >> 4) as usize;
-            self.v[x] = self.v[y];
-        }
-
-        0x8001 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let y = ((opcode & 0x00F0) >> 4) as usize;
-            self.v[x] |= self.v[y];
-        }
-
-        0x8002 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let y = ((opcode & 0x00F0) >> 4) as usize;
-            self.v[x] &= self.v[y];
-        }
-
-        0x8003 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let y = ((opcode & 0x00F0) >> 4) as usize;
-            self.v[x] ^= self.v[y];
-        }
-
-        0x80004 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let y = ((opcode & 0x00F0) >> 4) as usize;
-            let (result, carry) = self.v[x].overflowing_add(self.v[y]);
-            self.v[x] = result;
-            self.v[0xF] = if carry { 1 } else { 0 };
-
-            //don't wanna overflow it
-        }
-
-        0x8005 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let y = ((opcode & 0x00F0) >> 4) as usize;
-            self.v[0xF] = if self.v[x] > self.v[y] { 1 } else { 0 };
-            self.v[x] = self.v[x].wrapping_sub(self.v[y]);
-        }
-
-        0x8006 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            self.v[0xF] = self.v[x] & 1;
-            self.v[x] >>= 1;
-        }
-
-        0x8007 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let y = ((opcode & 0x00F0) >> 4) as usize;
-            self.v[0xF] = if self.v[y] > self.v[x] { 1 } else { 0 };
-            self.v[x] = self.v[y].wrapping_sub(self.v[x]);
-        }
-
-        0x800E => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            self.v[0xF] = (self.v[x] >> 7) & 1;
-            self.v[x] <<= 1;
+            match opcode & 0x000F {
+                0x0 => self.v[x] = self.v[y],
+                0x1 => self.v[x] |= self.v[y],
+                0x2 => self.v[x] &= self.v[y],
+                0x3 => self.v[x] ^= self.v[y],
+                0x4 => {
+                    let (res, carry) = self.v[x].overflowing_add(self.v[y]);
+                    self.v[x] = res;
+                    self.v[0xF] = if carry { 1 } else { 0 };
+                }
+                0x5 => {
+                    self.v[0xF] = if self.v[x] > self.v[y] { 1 } else { 0 };
+                    self.v[x] = self.v[x].wrapping_sub(self.v[y]);
+                }
+                0x6 => {
+                    if self.quirks.shift_uses_vy {
+                        self.v[0xF] = self.v[y] & 1;
+                        self.v[x] = self.v[y] >> 1;
+                    } else {
+                        self.v[0xF] = self.v[x] & 1;
+                        self.v[x] >>= 1;
+                    }
+                }
+                0x7 => {
+                    self.v[0xF] = if self.v[y] > self.v[x] { 1 } else { 0 };
+                    self.v[x] = self.v[y].wrapping_sub(self.v[x]);
+                }
+                0xE => {
+                    if self.quirks.shift_uses_vy {
+                        self.v[0xF] = (self.v[y] >> 7) & 1;
+                        self.v[x] = self.v[y] << 1;
+                    } else {
+                        self.v[0xF] = (self.v[x] >> 7) & 1;
+                        self.v[x] <<= 1;
+                    }
+                }
+                _ => println!("Unknown 0x8 opcode: {:#06x}", opcode),
+            }
         }
 
         0x9000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let y = ((opcode & 0x00F0) >> 4) as usize;
-            if opcode& 0x000F == 0 {
-                if self.v[x] != self.v[y] {
-                    self.pc += 2;
-                }
+            if opcode & 0x000F == 0 && self.v[x] != self.v[y] {
+                self.pc += 2;
             }
         }
 
+        0xA000 => {
+            self.i = opcode & 0x0FFF;
+        }
+
+        0xB000 => {
+            let addr = opcode & 0x0FFF;
+            self.pc = if self.quirks.bnnn_uses_vx {
+                addr + self.v[0] as u16
+            } else {
+                addr + self.v[((opcode & 0x0F00) >> 8) as usize] as u16
+            };
+        }
+
+        0xC000 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let kk = (opcode & 0x00FF) as u8;
+            self.v[x] = random::<u8>() & kk;
+        }
+
         //Display Op (Very Important!!!)
+
         0xD000 => {
             let x = self.v[((opcode & 0x0F00) >> 8) as usize] as u16;
             let y = self.v[((opcode & 0x00F0) >> 4) as usize] as u16;
@@ -259,113 +255,77 @@ pub fn emulate_cycle(&mut self){
             self.draw_flag = true;
         }
 
-        //Key Input Ops
-
-        0xE09E => {
+        0xE000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let key = self.v[x] as usize;
-            if self.keypad[key] {
-                self.pc += 2;
-            }
-        }
-
-        0xE0A1 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let key = self.v[x] as usize;
-            if !self.keypad[key] {
-                self.pc += 2;
-            }
-        }
-
-        0xF00A => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let mut key_pressed = false;
-            for i in 0..16 {
-                if self.keypad[i] {
-                    self.v[x] = i as u8;
-                    key_pressed = true;
-                    break;
+            match opcode & 0x00FF {
+                0x9E => {
+                    if self.keypad[key] {
+                        self.pc += 2;
+                    }
                 }
-            }
-
-            if !key_pressed {
-                self.pc -= 2;
-            }
-        }
-
-        //Memory Ops
-
-        0xA000 => {
-            self.i = opcode & 0x0FFF;
-        }
-
-        0xF01E => {
-            let x = ((opcode & 0x0F00) > 8) as usize;
-            self.i = self.i.wrapping_add(self.v[x] as i16);
-        }
-
-        0xF029 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            self.i = (self.v[x] as u16) * 5;
-        }
-
-        0xF033 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            let value = self.v[x];
-            self.memory[self.i as usize] = value / 100;
-            self.memory[(self.i + 1) as usize] = (value % 100) / 10;
-            self.memory[(self.i + 2) as usize] = value % 10;
-        }
-
-        0xF055 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            for offset in 0..=x {
-                self.memory[(self.i + offset as u16) as usize] = self.v[offset];
-            }
-
-            if self.quirks.fx55_increases_i {
-                self.i += (x + 1 ) as u16;
+                0xA1 => {
+                    if !self.keypad[key] {
+                        self.pc += 2;
+                    }
+                }
+                _ => println!("Unknown 0xE opcode: {:#06x}", opcode),
             }
         }
 
-        0xF065 => {
+        //Memory and Index Register Ops
+        0xF000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
-            for offset in 0..=x {
-                self.v[offset] = self.memory[(self.i + offset as u16) as usize];
+            match opcode & 0x00FF {
+                0x07 => self.v[x] = self.delay_timer,
+                0x0A => {
+                    let mut key_pressed = false;
+                    for i in 0..16 {
+                        if self.keypad[i] {
+                            self.v[x] = i as u8;
+                            key_pressed = true;
+                            break;
+                        }
+                    }
+                    if !key_pressed {
+                        self.pc -= 2;
+                    }
+                }
+                0x15 => self.delay_timer = self.v[x],
+                0x18 => self.sound_timer = self.v[x],
+                0x1E => self.i = self.i.wrapping_add(self.v[x] as u16),
+                0x29 => self.i = (self.v[x] as u16) * 5,
+                0x33 => {
+                    let val = self.v[x];
+                    self.memory[self.i as usize] = val / 100;
+                    self.memory[(self.i + 1) as usize] = (val % 100) / 10;
+                    self.memory[(self.i + 2) as usize] = val % 10;
+                }
+                0x55 => {
+                    for offset in 0..=x {
+                        self.memory[(self.i + offset as u16) as usize] = self.v[offset];
+                    }
+                    if self.quirks.fx55_increases_i {
+                        self.i += (x + 1) as u16;
+                    }
+                }
+                0x65 => {
+                    for offset in 0..=x {
+                        self.v[offset] = self.memory[(self.i + offset as u16) as usize];
+                    }
+                    if self.quirks.fx55_increases_i {
+                        self.i += (x + 1) as u16;
+                    }
+                }
+                _ => println!("Unknown 0xF opcode: {:#06x}", opcode),
             }
-
-            if self.quirks.fx55_increases_i {
-                self.i += (x + 1) as u16;
-            }
         }
 
-        //Timer Ops
-
-        0xF007 =. {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            self.v[x] = self.delay_timer;
-        }
-
-        0xF015 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            self.delay_timer = self.v[x];
-        }
-
-        0xF018 => {
-            let x = ((opcode & 0x0F00) >> 8) as usize;
-            self.sound_timer = self.v[x];
-        }
-
-
-
-
-        // Todo: Add more opcodes
-
-        _ => {
-            println!("Unknown opcode: {:#04x}", opcode);
-        }
+        _ => println!("Unknown opcode: {:#06x}", opcode),
     }
 
+    // Timers
+    
     if self.delay_timer > 0 {
         self.delay_timer -= 1;
     }
@@ -376,5 +336,6 @@ pub fn emulate_cycle(&mut self){
         self.sound_timer -= 1;
     }
 }
+
 
 }
