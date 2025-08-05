@@ -35,18 +35,19 @@ impl Display {
 
         self.canvas.set_draw_color(Color::WHITE);
 
-        for y in 0..SCREEN_HEIGHT {
-            for x in 0..SCREEN_WIDTH {
-                let index = (y * SCREEN_WIDTH + x) as usize;
-                if gfx[index] == 1 {
-                    let rect = Rect::new(
-                        (x * SCALE) as i32,
-                        (y * SCALE) as i32,
-                        SCALE,
-                        SCALE
-                    );
-                    self.canvas.fill_rect(rect).unwrap();
-                }
+        for (i, &pixel) in gfx.iter().enumerate(){
+            if pixel == 1 {
+                let x = (i as u32) % SCREEN_WIDTH;
+                let y = (i as u32) / SCREEN_WIDTH;
+
+                let rect = Rect::new(
+                    (x * SCALE) as i32,
+                    (y * SCALE) as i32,
+                    SCALE,
+                    SCALE,
+                );
+
+                self.canvas.fill_rect(rect).unwrap();
             }
         }
 
