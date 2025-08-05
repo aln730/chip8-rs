@@ -6,6 +6,9 @@ use display::Display;
 use std::time::{Duration, Instant};
 use std::thread::sleep;
 
+mod input;
+use input::map_keycode;
+
 fn main() {
     let sdl_context = sdl2::init().unwrap();
 
@@ -27,8 +30,24 @@ fn main() {
 
         for event in event_pump.poll_iter() {
             use sdl2::event::Event;
-            if let Event::Quit { .. } = event {
-                break 'running;
+            use sdl2::keyboard::Keycode;
+
+            match event {
+                Event::Quit { .. } => break 'running,
+
+                Event::KeyDown { keycode: Some(key), .. } => {
+                    if let Some(mapped) = map_keycode(key) {
+                        chip8.keypadwhat [mapped] = true;
+                    }
+                }
+
+                Event::KeyUp { keycode: Some(key), ..} => {
+                    if let Some(mapped) = map_keycode(key) {
+                        chip8.keypad[mapped] = false;
+                    }
+                }
+
+                _ => {}
             }
         }
 

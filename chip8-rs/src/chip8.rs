@@ -10,7 +10,7 @@ pub struct Chip8 {
     delay_timer: u8,
     sound_timer: u8,
     stack: Vec<u16>,
-    keypad: [bool;16],
+    pub keypad: [bool;16],
     pub draw_flag: bool,
     quirks: Quirks
 }
@@ -119,6 +119,34 @@ pub fn emulate_cycle(&mut self){
             self.pc = addr;
         }
 
+        0x3000 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let kk = ((opcode & 0x00FF)) as u8;
+            if self.v[x] == kk {
+                self.pc += 2;
+            }
+        }
+
+        0x4000 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let kk = ((opcode & 0x00FF) >> 8) as u8;
+            if self.v[x] != kk {
+                self.pc += 2;
+            }
+        }
+
+        0x5000 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            if opcode & 0x000F == 0 {
+                if self.v[x] == 0 {
+                    if self.v[x] == self.v[y] {
+                        self.pc +=2;
+                    }
+                }
+            }
+        }
+
         0x6000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let byte = (opcode & 0x00FF) as u8;
@@ -129,6 +157,65 @@ pub fn emulate_cycle(&mut self){
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let byte = (opcode & 0x00FF) as u8;
             self.v[x] = self.v[x].wrapping_add(byte);
+        }
+
+        0x8000 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            self.v[x] = self.v[y];
+        }
+
+        0x8001 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            self.v[x] |= self.v[y];
+        }
+
+        0x8002 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            self.v[x] &= self.v[y];
+        }
+
+        0x8003 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            self.v[x] ^= self.v[y];
+        }
+
+        0x80004 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            let (result, carry) = self.v[x].overflowing_add(self.v[y]);
+            self.v[x] = result;
+            self.v[0xF] = if carry { 1 } else { 0 };
+
+            //don't wanna overflow it
+        }
+
+        0x8005 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            self.v[0xF] = if self.v[x] > self.v[y] { 1 } else { 0 };
+            self.v[x] = self.v[x].wrapping_sub(self.v[y]);
+        }
+
+        0x8006 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            self.v[0xF] = self.v[x] & 1;
+            self.v[x] >>= 1;
+        }
+
+
+
+        0x9000 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            if opcode& 0x000F == 0 {
+                if self.v[x] != self.v[y] {
+                    self.pc += 2;
+                }
+            }
         }
 
         0xA000 => {
@@ -162,6 +249,26 @@ pub fn emulate_cycle(&mut self){
 
             self.draw_flag = true;
         }
+
+        0xE000 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let key = self.v[x] as usize;
+
+            match opcode & 0x00FF {
+                0x9E => {
+                    if self.keypad[key] {
+                        self.pc += 2;
+                    }
+                }
+
+                0xA1 => {
+                    if !self.keypad[key] {
+                        self.pc += 2;
+                    }
+                }
+            }
+        }
+
 
         // Todo: Add more opcodes
 
