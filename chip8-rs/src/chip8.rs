@@ -159,6 +159,8 @@ pub fn emulate_cycle(&mut self){
             self.v[x] = self.v[x].wrapping_add(byte);
         }
 
+        //Arithmatic Ops
+        
         0x8000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let y = ((opcode & 0x00F0) >> 4) as usize;
@@ -206,7 +208,18 @@ pub fn emulate_cycle(&mut self){
             self.v[x] >>= 1;
         }
 
+        0x8007 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let y = ((opcode & 0x00F0) >> 4) as usize;
+            self.v[0xF] = if self.v[y] > self.v[x] { 1 } else { 0 };
+            self.v[x] = self.v[y].wrapping_sub(self.v[x]);
+        }
 
+        0x800E => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            self.v[0xF] = (self.v[x] >> 7) & 1;
+            self.v[x] <<= 1;
+        }
 
         0x9000 => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
@@ -218,11 +231,7 @@ pub fn emulate_cycle(&mut self){
             }
         }
 
-        0xA000 => {
-            self.i = opcode & 0x0FFF;
-        }
-
-
+        //Display Op (Very Important!!!)
         0xD000 => {
             let x = self.v[((opcode & 0x0F00) >> 8) as usize] as u16;
             let y = self.v[((opcode & 0x00F0) >> 4) as usize] as u16;
@@ -250,24 +259,99 @@ pub fn emulate_cycle(&mut self){
             self.draw_flag = true;
         }
 
-        0xE000 => {
+        //Key Input Ops
+
+        0xE09E => {
             let x = ((opcode & 0x0F00) >> 8) as usize;
             let key = self.v[x] as usize;
-
-            match opcode & 0x00FF {
-                0x9E => {
-                    if self.keypad[key] {
-                        self.pc += 2;
-                    }
-                }
-
-                0xA1 => {
-                    if !self.keypad[key] {
-                        self.pc += 2;
-                    }
-                }
+            if self.keypad[key] {
+                self.pc += 2;
             }
         }
+
+        0xE0A1 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let key = self.v[x] as usize;
+            if !self.keypad[key] {
+                self.pc += 2;
+            }
+        }
+
+        0xF00A => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let mut key_pressed = false;
+            for i in 0..16 {
+                if self.keypad[i] {
+                    self.v[x] = i as u8;
+                    key_pressed = true;
+                    break;
+                }
+            }
+
+            if !key_pressed {
+                self.pc -= 2;
+            }
+        }
+
+        //Memory Ops
+
+        0xA000 => {
+            self.i = opcode & 0x0FFF;
+        }
+
+        0xF01E => {
+            let x = ((opcode & 0x0F00) > 8) as usize;
+            self.i = self.i.wrapping_add(self.v[x] as i16);
+        }
+
+        0xF029 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            self.i = (self.v[x] as u16) * 5;
+        }
+
+        0xF033 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            let value = self.v[x];
+            self.memory[self.i as usize] = value / 100;
+            self.memory[(self.i + 1) as usize] = (value % 100) / 10;
+            self.memory[(self.i + 2) as usize] = value % 10;
+        }
+
+        0xF055 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            for offset in 0..=x {
+                self.memory[(self.i + offset as u16) as usize] = self.v[offset];
+            }
+
+            //self.i +=  as u16 + 1
+        }
+
+        0xF065 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            for offset in 0..=x {
+                self.v[offset] = self.memory[(self.i + offset as u16) as usize];
+            }
+            //self.i += x as u16 + 1
+        }
+
+        //Timer Ops
+
+        0xF007 =. {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            self.v[x] = self.delay_timer;
+        }
+
+        0xF015 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            self.delay_timer = self.v[x];
+        }
+
+        0xF018 => {
+            let x = ((opcode & 0x0F00) >> 8) as usize;
+            self.sound_timer = self.v[x];
+        }
+
+
 
 
         // Todo: Add more opcodes
