@@ -323,7 +323,9 @@ pub fn emulate_cycle(&mut self){
                 self.memory[(self.i + offset as u16) as usize] = self.v[offset];
             }
 
-            //self.i +=  as u16 + 1
+            if self.quirks.fx55_increases_i {
+                self.i += (x + 1 ) as u16;
+            }
         }
 
         0xF065 => {
@@ -331,7 +333,10 @@ pub fn emulate_cycle(&mut self){
             for offset in 0..=x {
                 self.v[offset] = self.memory[(self.i + offset as u16) as usize];
             }
-            //self.i += x as u16 + 1
+
+            if self.quirks.fx55_increases_i {
+                self.i += (x + 1) as u16;
+            }
         }
 
         //Timer Ops
