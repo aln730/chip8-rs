@@ -18,7 +18,7 @@ fn main() {
         fx55_increases_i: false,
     });
 
-    let _ = chip8.load_rom("roms/spaceinvaders.ch8");
+    let _ = chip8.load_rom("roms/ibm_logo.ch8");
 
     let mut display = Display::new(&sdl_context);
 

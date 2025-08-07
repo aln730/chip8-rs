@@ -8,13 +8,14 @@ pub struct Chip8 {
     v: [u8; 16],
     i: u16,
     pc: u16,
-    pub gfx: [u8; 64 * 32],
+    pub gfx: [u8; 128 * 64],
     delay_timer: u8,
     sound_timer: u8,
     stack: Vec<u16>,
     pub keypad: [bool;16],
     pub draw_flag: bool,
     quirks: Quirks
+    hires: bool,
 }
 
 pub struct  Quirks{
@@ -31,7 +32,7 @@ const FONTSET: [u8; 80] = [
     0x90, 0x90, 0xF0, 0x10, 0x10, // 4
     0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
     0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7 
     0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
     0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
     0xF0, 0x90, 0xF0, 0x90, 0x90, // A
@@ -321,11 +322,18 @@ pub fn emulate_cycle(&mut self) {
             }
         }
 
+        //SUPERCHIP OPCODES
+
+        0x00C0..=0x00CF => {
+            let x = opcode & 0x00F;
+            for y
+        }
+
         _ => println!("Unknown opcode: {:#06x}", opcode),
     }
 
     // Timers
-    
+
     if self.delay_timer > 0 {
         self.delay_timer -= 1;
     }
